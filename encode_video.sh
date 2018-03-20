@@ -1,5 +1,5 @@
 #!/bin/bash 
-
+# author: rachpt@126.com
 #------settings--------#
 
 myfolder=finshed
