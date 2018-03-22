@@ -53,7 +53,7 @@ do
 	fi
 	
 	nohup $ffmpegcode -pass 1 -an -f mp4 -y /dev/null && $ffmpegcode -pass 2 -c:a aac -b:a $audiorate -strict -2 ${FOLDER}/$myfolder/${tempname%.*}_$out.mp4 >/dev/null 2>&1
-	echo "nohup $ffmpegcode -pass 1 -an -f mp4 -y /dev/null && $ffmpegcode -pass 2 -c:a aac -b:a $audiorate -strict -2 ${FOLDER}/$myfolder/${tempname%.*}_$out.mp4 >/dev/null 2>&1"
+	#echo "nohup $ffmpegcode -pass 1 -an -f mp4 -y /dev/null && $ffmpegcode -pass 2 -c:a aac -b:a $audiorate -strict -2 ${FOLDER}/$myfolder/${tempname%.*}_$out.mp4 >/dev/null 2>&1"
 done
 
 rm -f ffmpeg2pass*
