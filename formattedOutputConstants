@@ -1,0 +1,77 @@
+#!/bin/bash
+# author: rachpt
+dos2unix "$1" &> /dev/null
+
+tempfile=`mktemp const.XXXXXXXX`
+
+tempPageElastic=`mktemp elasticAnalysisPage.XXXXXXXX`
+
+matrixData=`grep -A 8 "Constants Cij"  "$1" | sed -n '4,$p' | awk 'BEGIN{OSF=""}{print "++++"$1"++++"$2"++++"$3"++++"$4"++++"$5"++++"$6}'`
+
+#-------------------------#
+
+curl -s 'http://progs.coudert.name/elate' \
+-H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' --compressed \
+-H 'Accept-Language: zh-CN,en-US;q=0.8,zh;q=0.5,en;q=0.3' \
+-H 'Connection: keep-alive' \
+-H 'Content-Type: application/x-www-form-urlencoded' \
+-H 'DNT: 1' \
+-H 'Host: progs.coudert.name' \
+-H 'Referer: http://progs.coudert.name/elate' \
+-H 'Upgrade-Insecure-Requests: 1' \
+-H 'User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:59.0) Gecko/20100101 Firefox/59.0' \
+--data "matrix=$matrixData&sysname=test" > $tempPageElastic
+
+
+minPoissonsRatio=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | awk '/Value/ {print $13}' | awk 'BEGIN{FS="[<|>]"} {print $5}'`
+maxPoissonsRatio=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | awk '/Value/ {print $13}' | awk 'BEGIN{FS="[<|>]"} {print $9}'`
+
+
+minAxisPoissonsRatio=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | grep -B 2 "<td>Axis</td></tr>" | sed -n '1p' | awk 'BEGIN{FS="[<|>]"} {printf "("$3","$5","$7")"}'`
+maxAxisPoissonsRatio=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | grep -B 2 "Second axis" | sed -n '2p' | awk 'BEGIN{FS="[<|>]"} {printf "("$3","$5","$7")"}'`
+
+#-------------------------#
+
+sed -n '/+\/-/p' "$1" > $tempfile
+bulkmodulus=`gawk '/=/ { print $4 }' $tempfile`
+bulkmodulusErr=`gawk '/=/ { print $6 }' $tempfile`
+
+for (( j = 4; j < 7; j = j + 2 ))
+do
+	if [ $j -eq 4 ]
+	then
+		echo -e "\n$bulkmodulus\t$bulkmodulusErr\t$minPoissonsRatio\t$maxPoissonsRatio\t\c"
+		
+	else
+		echo -e "\t\t$minAxisPoissonsRatio\t$maxAxisPoissonsRatio\t\c"
+	fi
+		
+	
+	for (( i = 1; i < 22; i++ ))
+	do 
+		cijTempName=`cat $tempfile | gawk -v circle=$j '$1 == loop {print $circle}' loop=$i`
+	
+		if [ $i -ge 2 ] && [ $i -le 6 ]
+		then
+			if [ -z $cijTempName ]
+			then
+				echo -e "-\t\c"
+			else
+				echo -e $cijTempName"\t\c"
+			fi
+		else
+			if [ -z $cijTempName ]
+			then
+				echo -e "0\t\c"
+			else
+				echo -e $cijTempName"\t\c"
+			fi
+		fi
+	done
+	echo 
+done | tee -a formatted
+
+
+#-------------------------#
+
+rm -f $tempfile $tempfile2 $tempPageElastic
