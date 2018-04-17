@@ -2,15 +2,20 @@
 # author: rachpt
 # version: v1.1
 # date: 2018-04-17
-#----------准备工作---------------#
-dos2unix "$1" &> /dev/null
+# useage: set MS constent files as
+#         paramters to this script.
 
-tempfile=`mktemp const.XXXXXXXX`
-
-tempPageElastic=`mktemp elasticAnalysisPage.XXXXXXXX`
-
-#----------保存至文本文件路径-------#
+#----------结果保存文本路径---------#
 outPath='/home/rachpt/desktop/formatted.txt'
+
+tempfile=`mktemp /tmp/const.XXXXXXXX`
+tempPageElastic=`mktemp /tmp/elasticAnalysisPage.XXXXXXXX`
+
+#----------参数量大于0-------------#
+while [ $# != 0 ]; do
+
+#-----------主循环开始-------------#
+dos2unix "$1" &> /dev/null
 
 #----------POST数据--------------#
 matrixData=`grep -A 8 "Constants Cij"  "$1" | sed -n '4,$p' | awk 'BEGIN{OSF=""}{print "++++"$1"++++"$2"++++"$3"++++"$4"++++"$5"++++"$6}'`
@@ -75,7 +80,7 @@ do
 		echo -e "\t\t$minAxisYoungsModulus\t$maxAxisYoungsModulus\t$minAxisShearModulus1,$minAxisShearModulus2\t$maxAxisShearModulus1,$maxAxisShearModulus2\t$minAxisPoissonsRatio1,$minAxisPoissonsRatio2\t$maxAxisPoissonsRatio1,$maxAxisPoissonsRatio2\t\c"
 	fi
 		
-	#-----打印Cij--------#
+	#-----打印Cij部分--------#
 	for (( i = 1; i < 22; i++ ))
 	do 
 		cijTempName=`cat $tempfile | gawk -v circle=$j '$1 == loop {print $circle}' loop=$i`
@@ -100,7 +105,9 @@ do
 	echo 
 done | tee -a $outPath
 
+#-----------主循环结束-------------#
+shift  
+done  
 
 #-----------收尾--------------#
-
 rm -f $tempfile $tempPageElastic
