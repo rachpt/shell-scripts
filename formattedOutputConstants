@@ -1,14 +1,21 @@
 #!/bin/bash
 # author: rachpt
+# version: v1.1
+# date: 2018-04-17
+#----------准备工作---------------#
 dos2unix "$1" &> /dev/null
 
 tempfile=`mktemp const.XXXXXXXX`
 
 tempPageElastic=`mktemp elasticAnalysisPage.XXXXXXXX`
 
+#----------保存至文本文件路径-------#
+outPath='/home/rachpt/desktop/formatted.txt'
+
+#----------POST数据--------------#
 matrixData=`grep -A 8 "Constants Cij"  "$1" | sed -n '4,$p' | awk 'BEGIN{OSF=""}{print "++++"$1"++++"$2"++++"$3"++++"$4"++++"$5"++++"$6}'`
 
-#-------------------------#
+#-----------提交计算--------------#
 
 curl -s 'http://progs.coudert.name/elate' \
 -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' --compressed \
@@ -22,15 +29,37 @@ curl -s 'http://progs.coudert.name/elate' \
 -H 'User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:59.0) Gecko/20100101 Firefox/59.0' \
 --data "matrix=$matrixData&sysname=test" > $tempPageElastic
 
-
+#----------泊松比----------------#
 minPoissonsRatio=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | awk '/Value/ {print $13}' | awk 'BEGIN{FS="[<|>]"} {print $5}'`
 maxPoissonsRatio=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | awk '/Value/ {print $13}' | awk 'BEGIN{FS="[<|>]"} {print $9}'`
 
+#----------泊松比坐标-------------#
+minAxisPoissonsRatio1=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | grep -B 2 "<td>Axis</td></tr>" | sed -n '1p' | awk 'BEGIN{FS="[<|>]"} {printf "("$3","$5","$7")"}'`
+minAxisPoissonsRatio2=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | grep -B 2 "Second axis" | sed -n '1p' | awk 'BEGIN{FS="[<|>]"} {printf "("$3","$5","$7")"}'`
 
-minAxisPoissonsRatio=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | grep -B 2 "<td>Axis</td></tr>" | sed -n '1p' | awk 'BEGIN{FS="[<|>]"} {printf "("$3","$5","$7")"}'`
-maxAxisPoissonsRatio=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | grep -B 2 "Second axis" | sed -n '2p' | awk 'BEGIN{FS="[<|>]"} {printf "("$3","$5","$7")"}'`
+maxAxisPoissonsRatio1=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | grep -B 2 "<td>Axis</td></tr>" | sed -n '2p' | awk 'BEGIN{FS="[<|>]"} {printf "("$3","$5","$7")"}'`
+maxAxisPoissonsRatio2=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | grep -B 2 "Second axis" | sed -n '2p' | awk 'BEGIN{FS="[<|>]"} {printf "("$3","$5","$7")"}'`
 
-#-------------------------#
+#----------杨氏模量---------------#
+minYoungsModulus=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | awk '/Value/ {print $2}'`
+maxYoungsModulus=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | awk '/Value/ {print $4}'`
+
+#----------杨氏模量坐标------------#
+minAxisYoungsModulus=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | grep -A 2 "<tr><td>Axis</td>" | sed -n '2p' | awk 'BEGIN{FS="[<|>]"} {printf "("$3","$5","$7")"}'`
+maxAxisYoungsModulus=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | grep -A 2 "<tr><td>Axis</td>" | sed -n '3p' | awk 'BEGIN{FS="[<|>]"} {printf "("$3","$5","$7")"}'`
+
+#----------剪切模量---------------#
+minShearModulus=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | awk '/Value/ {print $10}'`
+maxShearModulus=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | awk '/Value/ {print $12}'`
+
+#----------剪切模量坐标------------#
+minAxisShearModulus1=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | grep -B 4 "<td>Axis</td></tr>" | sed -n '1p' | awk 'BEGIN{FS="[<|>]"} {printf "("$3","$5","$7")"}'`
+minAxisShearModulus2=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | grep -B 4 "Second axis" | sed -n '1p' | awk 'BEGIN{FS="[<|>]"} {printf "("$3","$5","$7")"}'`
+
+maxAxisShearModulus1=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | grep -B 4 "<td>Axis</td></tr>" | sed -n '2p' | awk 'BEGIN{FS="[<|>]"} {printf "("$3","$5","$7")"}'`
+maxAxisShearModulus2=`grep -A 24 "Variations of the elastic moduli" $tempPageElastic | grep -B 4 "Second axis" | sed -n '2p' | awk 'BEGIN{FS="[<|>]"} {printf "("$3","$5","$7")"}'`
+
+#-----------格式化输出-------------#
 
 sed -n '/+\/-/p' "$1" > $tempfile
 bulkmodulus=`gawk '/=/ { print $4 }' $tempfile`
@@ -40,13 +69,13 @@ for (( j = 4; j < 7; j = j + 2 ))
 do
 	if [ $j -eq 4 ]
 	then
-		echo -e "\n$bulkmodulus\t$bulkmodulusErr\t$minPoissonsRatio\t$maxPoissonsRatio\t\c"
+		echo -e "\n$bulkmodulus\t$bulkmodulusErr\t$minYoungsModulus\t$maxYoungsModulus\t$minShearModulus\t$maxShearModulus\t$minPoissonsRatio\t$maxPoissonsRatio\t\c"
 		
 	else
-		echo -e "\t\t$minAxisPoissonsRatio\t$maxAxisPoissonsRatio\t\c"
+		echo -e "\t\t$minAxisYoungsModulus\t$maxAxisYoungsModulus\t$minAxisShearModulus1,$minAxisShearModulus2\t$maxAxisShearModulus1,$maxAxisShearModulus2\t$minAxisPoissonsRatio1,$minAxisPoissonsRatio2\t$maxAxisPoissonsRatio1,$maxAxisPoissonsRatio2\t\c"
 	fi
 		
-	
+	#-----打印Cij--------#
 	for (( i = 1; i < 22; i++ ))
 	do 
 		cijTempName=`cat $tempfile | gawk -v circle=$j '$1 == loop {print $circle}' loop=$i`
@@ -69,9 +98,9 @@ do
 		fi
 	done
 	echo 
-done | tee -a formatted
+done | tee -a $outPath
 
 
-#-------------------------#
+#-----------收尾--------------#
 
-rm -f $tempfile $tempfile2 $tempPageElastic
+rm -f $tempfile $tempPageElastic
