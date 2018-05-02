@@ -1,6 +1,6 @@
 #!/bin/bash 
 # author: rachpt@126.com
-# version: 1.0
+# version: 1.4
 #------settings--------#
 
 # use sd or ipad
@@ -11,6 +11,8 @@ videoencode="x265"
 myfolder=$videoencode
 # add comment for video
 mycomment=made_by_Linux_OS
+
+zipScriptPath="/home/rachpt/document/shell/work_place/make_zip_upload.sh"
 
 #-------maincode-------#
 
@@ -99,4 +101,5 @@ IFS=$IFS_OLD
 rm -f ffmpeg2pass*
 rm -f x265_2pass.log*
 echo "finished!"
+sh $zipScriptPath $FOLDER
 exit
