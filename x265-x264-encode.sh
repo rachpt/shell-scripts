@@ -46,6 +46,16 @@ if [ $compatibility == "sd" ]
 	
 fi
 
+#--------transmission-----#
+
+if  [ ! -n "$TR_TORRENT_DIR" ] ;then
+	FOLDER=$(cd `dirname $0`; pwd)
+else
+    FOLDER=${TR_TORRENT_DIR%/*}
+	cd $FOLDER
+fi
+
+#-------------------------#
 
 if [ ! -d $myfolder ];then
   mkdir -p $myfolder

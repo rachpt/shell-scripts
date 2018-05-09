@@ -13,8 +13,7 @@ uplaodPath="/压缩包_集合/XX/"
 #--------zip-----------#
 cd $1
 FOLDER=$1
-filelist=$(find \( -iname "*_x264_480p.mp4" -o -iname "*_x264_720p.mp4" -o -iname "*_x265_480p.mp4" -o -iname "*_x265_720p.mp4")
-
+filelist=$(find -iname "*_x26[45]_[47][82]0p.mp4") 
 FOLDER=$(cd `dirname $0`; pwd)
 
 IFS_OLD=$IFS
