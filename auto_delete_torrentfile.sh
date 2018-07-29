@@ -5,7 +5,7 @@
 #
 # Auto clean old files/folders in 
 # watch-dir which are not seeding
-# on transmission#.
+# in transmission#.
 #
 #---------Settings------------#
 # Watch folder for clean.
@@ -16,7 +16,7 @@ LOG_PATH='path/of/log'
 
 # Need transmission-remote
 HOST='127.0.0.1'
-PORT='9090'
+PORT='9091'
 USER='admin'
 PASSWORD='password'
 
@@ -38,18 +38,18 @@ IS_SEEDING()
         do
 	    eachTorrent=`transmission-remote ${HOST}:${PORT} --auth ${USER}:${PASSWORD} -t $eachTorrentID -i |grep Name|awk '{print $2}'`
 	    delete_commit=0
-            if [ '$1' = '$eachTorrent' ]; then
+            if [ "$1" = "$eachTorrent" ]; then
 		delete_commit=1
             fi
         done
     fi
-    if [ ! -f $LOG_PATH ]; then
-        touch $LOG_PATH
+    if [ ! -f "$LOG_PATH" ]; then
+        touch "$LOG_PATH"
     fi
 
     if [ $delete_commit -eq 0 ]; then
         rm -rf "$FILE_PATH/$1"
-        echo "[`date +%Y-%m-%d %H:%M:%S`] deleted Torrent [$1]" >> $LOG_PATH
+        echo "[`date +'%Y-%m-%d %H:%M:%S'`] deleted Torrent [$1]" >> "$LOG_PATH"
     fi
 }
 
@@ -70,7 +70,7 @@ COMPARER_FILE()
 {
     IFS_OLD=$IFS
     IFS=$','
-    for i in `ls -m $FILE_PATH`
+    for i in `ls -m "$FILE_PATH"`
     do
        j="`echo $i|sed ':t;N;s/\n//;b t'`"
        i="$j"
@@ -94,7 +94,7 @@ IS_OVER_USE()
     if [ "$DISK_OVER" = "1" ]; then
         for i in `transmission-remote ${HOST}:${PORT} --auth ${USER}:${PASSWORD} -l|grep 100% |grep Done| awk '{print $1}'|grep -v ID`
         do
-            [ "$i" -gt "0" ] && echo -n "$(date +%Y-%m-%d %H:%M:%S) [Done] " >> $LOG_PATH
+            [ "$i" -gt "0" ] && echo -n "$(date +'%Y-%m-%d %H:%M:%S') [Done] " >> $LOG_PATH
              transmission-remote ${HOST}:${PORT} --auth ${USER}:${PASSWORD} -t $i --remove-and-delete >> $LOG_PATH 2>&1
              [ "$i" -gt "0" ] && sleep 10 && DISK_CHECK
              [ "$DISK_OVER" = "0" ] && break
