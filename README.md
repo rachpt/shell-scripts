@@ -46,3 +46,8 @@
 
 用途，可能是 auto-seed 实现的自动清理思路。
 
+## lambda\_omega 和 elec
+效果如下图，用于快速转化
+
+![pic](https://ws1.sinaimg.cn/large/675bda05ly1g0vdhzflqdj20ay07mjsu.jpg)
+https://ws1.sinaimg.cn/large/675bda05ly1g0vdhzflqdj20ay07mjsu.jpg
