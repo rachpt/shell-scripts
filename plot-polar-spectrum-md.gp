@@ -5,14 +5,14 @@
 #文件夹名
 foldername=system("basename `pwd`")
 #------------select-theta--------------#
-system("rm -f "foldername."_tsurff_polar.dat")
+system sprintf("rm -f %s_tsurff_polar.dat", foldername)
 ## print only the lines for theta=pi/2 and blank lines between the data blocks
-system("awk '$3==1.5707963267948966 || $0==\"\" {print $0}' $(ls -v tsurff-polar*) > tsurff-polar.dat")
+system "awk '$3==1.5707963267948966 || $0==\"\" {print $0}' $(ls -v tsurff-polar*) > tsurff-polar.dat"
 ## erase superfluous blank lines
-system("cat -s tsurff-polar.dat > temp")
+system "cat -s tsurff-polar.dat > temp"
 ## copy line for phi=0 to the end of a data block
-system("awk '$4==0 { line=$0 }; $0==\"\" { $0 = $0 line \"\\n\" }; { print $0 }' temp > "foldername."_tsurff_polar.dat")
-system("rm -f temp")
+system sprintf("awk '$4==0 { line=$0 }; $0==\"\" { $0 = $0 line \"\\n\" }; { print $0 }' temp > %s_tsurff_polar.dat", foldername)
+system "rm -f temp" 
 #------------select-theta--------------#
 reset
 set term x11 enhanced
@@ -45,6 +45,6 @@ set lmargin at screen 0.1
 set rmargin at screen 0.9
 
 # gnuplot expects: theta, z, r
-splot foldername."_tsurff_polar.dat" u 4:($5)*(theta(lim-$2)):2 w pm3d t foldername
+splot sprintf("%s_tsurff_polar.dat", foldername) u 4:($5)*(theta(lim-$2)):2 w pm3d t foldername
 
 set output
