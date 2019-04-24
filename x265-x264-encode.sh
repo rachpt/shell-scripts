@@ -1,115 +1,104 @@
-#!/bin/bash 
+#!/bin/bash
 # author: rachpt@126.com
-# version: 1.4
-#------settings--------#
+# version: 2.0
+#--------settings----------#
+ROOT_PATH="$(dirname "$(readlink -f "$0")")"
 
 # use sd or ipad
 compatibility="sd"
 # set x264 or x264
 videoencode="x265"
-# default out folder
-myfolder=$videoencode
 # add comment for video
-mycomment=made_by_Linux_OS
+my_comment='made_by_Linux_OS'
 
-zipScriptPath="/home/rachpt/document/shell/work_place/make_zip_upload.sh"
+#--------upsettings-------#
+password='mypasswd'
 
-#-------maincode-------#
+pass="lock"
 
-if [ $compatibility == "sd" ]
-	then
-		cut="-s 854x480"
-		if [ $videoencode == "x265" ]; then
-				videorate="-b:v 260k"
-			elif [ $videoencode == "x264" ]; then
-				videorate="-b:v 500k"
-		fi
-		audiorate="-b:a 42k"
-		speed="-preset fast"
-		profile="-x264-params \"profile=high:level=4.0\""
-		out="480p"
-		
-	elif [ $compatibility == "ipad" ]
-	then
-		cut="-s 1280x720"
-		if [ $videoencode == "x265" ]; then
-				videorate="-b:v 1200k"
-			elif [ $videoencode == "x264" ]; then
-				videorate="-b:v 2200k"
-		fi		
-		audiorate="-b:a 128k"
-		speed="-preset slow"
-		profile="-x264-params \"profile=high:level=4.2\""
-		out="720p"
-	else
-	        exit
-	
-fi
-
-#--------transmission-----#
-
-if  [ ! -n "$TR_TORRENT_DIR" ] ;then
-	FOLDER=$(cd `dirname $0`; pwd)
-else
-    FOLDER=${TR_TORRENT_DIR%/*}
-	cd $FOLDER
-fi
+UPLOAD_PATH="/path/"
 
 #-------------------------#
+LIST_PATH="${ROOT_PATH%/*}/list_tmp.txt"
 
-if [ ! -d $myfolder ];then
-  mkdir -p $myfolder
+if [ ! -d "${ROOT_PATH%/*}/done" ]; then
+    mkdir "${ROOT_PATH%/*}/done"
 fi
 
-filelist=$(find \( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.ts" -o -iname "*.mov" -o -iname "*.avi" -o -iname "*.wmv" \) -a ! -name "*_$out.mp4")
-FOLDER=$(cd `dirname $0`; pwd)
+find "$ROOT_PATH" \( -iname '*.mp4' -o -iname '*.mkv' -o -iname '*.m4v' -o -iname '*.ts' -o -iname '*.mov' -o -iname '*.avi' -o -iname '*.wmv' \) -a ! -name '*0p.mp4' > "$LIST_PATH"
 
-IFS_OLD=$IFS
-IFS=$'\n'
+#--------pamaters---------#
+if [ $compatibility = "sd" ]; then
+    cut="854x480"
+    if [ $videoencode = "x265" ]; then
+        videorate="260k"
+    elif [ $videoencode = "x264" ]; then
+        videorate="500k"
+    fi
+    audiorate="42k"
+    speed="fast"
+    profile="-x264-params 'profile=high:level=4.0'"
+    out="480p"
 
-for filename in $filelist
+elif [ $compatibility = "ipad" ]; then
+    cut="1280x720"
+    if [ $videoencode = "x265" ]; then
+        videorate="1200k"
+    elif [ $videoencode = "x264" ]; then
+        videorate="2200k"
+    fi
+    audiorate="128k"
+    speed="slow"
+    profile="-x264-params 'profile=high:level=4.2'"
+    out="720p"
+fi
 
-do
-	tempname=${filename#*/};
-	newfilename=${FOLDER}/${tempname};
-	
-	if [ $tempname == */* ]; then
-		videoname=${filename##*/};
-		else
-		videoname=$tempname
-	fi
-	
-	videoname="-metadata title=${videoname%.*} -metadata comment=$mycomment";
-	if [ $videoencode == "x265" ]; then
-			ffmpegcode="ffmpeg -y -i \"$newfilename\" $videoname $cut -c:v lib$videoencode -r 24 $speed $videorate";
-			setpass="-x265-params pass=";
-		elif [ $videoencode == "x264" ]; then
-			ffmpegcode="ffmpeg -y -i \"$newfilename\" $videoname $cut -c:v lib$videoencode -r 24 $profile $speed $videorate";
-			setpass="-pass ";
-	fi
-	isempty=${filename#*.};
-	isempty=${isempty%/*};
+#--------make zip and upload-----------#
+package_file_to_zip_and_upload()
+{
+    if [ -s "$i" ]; then
+	    zip_file="${i%.*}_${pass}.zip"
+	    zip -rjqP "$password" "$zip_file" "$i"
+        sleep 1
+        /opt/baidupcs/baidupcs upload "$zip_file" "$UPLOAD_PATH"
+        sleep 1
+        rm -f "$zip_file"
+    fi
+}
 
-	if [ ! -d $myfolder$isempty ]; then
-	
-  		mkdir -p $myfolder$isempty;
-	fi
-	
-	outfilepath=${FOLDER}/$myfolder/${tempname%.*}_${videoencode}_${out}.mp4
-	
-	if [ -f "$outfilepath" ]; then
-  		continue;
-	fi
-	
-	nohup $ffmpegcode ${setpass}1 -an -f mp4 -y /dev/null && $ffmpegcode ${setpass}2 -c:a aac $audiorate -strict -2 \"$outfilepath\" >/dev/null 2>&1
+#----------main func------------#
+use_ffmpeg_encode_file()
+{
+    while true; do
+        one_file="$(tail -1 "$LIST_PATH")"
+        [ ! "$one_file" ] && break
+        BASE_NAME="$(basename $one_file)"
+        NAME="${BASE_NAME%.*}"
 
-done
+        out_file_path="${one_file%.*}_${videoencode}_${out}.mp4"
 
-IFS=$IFS_OLD
+		if [ ! -f "$out_file_path" ]; then
+    	    if [ "$videoencode" = "x265" ]; then
+    	    ( nice -19 ffmpeg -y -i "$one_file" -metadata title="$NAME" -metadata comment="$my_comment" -s $cut -c:v libx265 -x265-params pass=1 -r 24 -b:v $videorate -an -f mp4 /dev/null ) && ( nice -19 ffmpeg -y -i "$one_file" -metadata title="$NAME" -metadata comment="$my_comment" -s $cut -c:v libx265 -x265-params pass=2 -r 24 -b:v $videorate -c:a aac -b:a "$audiorate" -strict -2 "$out_file_path" )
 
+    	    elif [ "$videoencode" = "x264" ]; then
+    	    ( nice -19 ffmpeg -y -i "$one_file" -metadata title="$NAME" -metadata comment="$my_comment" -s $cut -c:v libx264 -r 24 -b:v $videorate -pass 1 -an -f mp4 /dev/null ) && ( nice -19 ffmpeg -y -i "$one_file" -metadata title="$NAME" -metadata comment="$my_comment" -s $cut -c:v libx264 -r 24 -b:v $videorate -pass 2 -c:a aac -b:a "$audiorate" -strict -2 "$out_file_path" )
 
-rm -f ffmpeg2pass*
-rm -f x265_2pass.log*
-echo "finished!"
-sh $zipScriptPath $FOLDER
-exit
+    	    fi
+    	fi
+
+        #( package_file_to_zip_and_upload "$out_file_path" ) &
+        #zip_and_upload_pid=$!
+
+        mv "$one_file" "${ROOT_PATH%/*}/done/${BASE_NAME}"
+
+        sed -i '$d' "$LIST_PATH"
+        [ ! -s "$LIST_PATH" ] && break
+    done
+    #wait $zip_and_upload_pid > /dev/null 2>&1
+}
+
+#-------call function----------#
+
+use_ffmpeg_encode_file
+
