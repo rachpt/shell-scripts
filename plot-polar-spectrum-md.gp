@@ -1,6 +1,6 @@
 #!/usr/bin/env gnuplot
 # Author: rachpt
-# Date: 2019-04-24
+# Date: 2019-04-25
 
 #文件夹名
 foldername=system("basename `pwd`")
@@ -15,12 +15,11 @@ system sprintf("awk '$4==0 { line=$0 }; $0==\"\" { $0 = $0 line \"\\n\" }; { pri
 system "rm -f temp" 
 #------------select-theta--------------#
 reset
-set term x11 enhanced
 
-set output foldername."_polar_spectrum.png"
+set term png enhanced size 1300,1200
 # 图片大小
-set term png size 1300,1200
 set size square
+set output foldername."_polar_spectrum.png"
 
 # 设置 color bar
 set palette defined ( 0 0 0 0, 0.1667 0 0 1, 0.5 1 1 0, 1 1 0 0 )
