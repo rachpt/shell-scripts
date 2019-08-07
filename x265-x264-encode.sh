@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 # author: rachpt@126.com
-# version: 3.1
+# version: 3.2
 #--------settings----------#
-VIDEOS="~/workdir/encoding"
-OUTDIR="~/workdir/x265"
-DONE="~/workdir/done"
-SCRIPTS="~/workdir/scripts"  # this file's path
-
+ROOT='/home/workdir/'
 # use sd or ipad
 compatibility="sd"
 # set x264 or x264
-videoencode="x265"
+vc="x265"
 # add comment for video
-my_comment='Powered by rachpt'
-
-#-------------------------#
+mycc='made-by-rachpt'
+#--------------------------#
+VIDEOS="${ROOT%/}/encoding"
+OUTDIR="${ROOT%/}/x265"
+DONE="${ROOT%/}/done"
+SCRIPTS="${ROOT%/}/scripts"
+#--------------------------#
 
 [[ -d "$OUTDIR" ]] || mkdir -p "$OUTDIR"
 [[ -d "$DONE" ]] || mkdir -p "$DONE"
@@ -24,24 +24,24 @@ queues="${SCRIPTS%/}/queues.txt"
 #--------pamaters---------#
 if [ $compatibility = "sd" ]; then
     cut="-2:480"
-    if [ $videoencode = "x265" ]; then
-        videorate="260k"
-    elif [ $videoencode = "x264" ]; then
-        videorate="500k"
+    if [ $vc = "x265" ]; then
+        vr="300k"
+    elif [ $vc = "x264" ]; then
+        vr="600k"
     fi
-    audiorate="42k"
+    ar="48k"
     speed="fast"
     profile="-x264-params 'profile=high:level=4.0'"
     out="480p"
 
 elif [ $compatibility = "ipad" ]; then
     cut="-2:720"
-    if [ $videoencode = "x265" ]; then
-        videorate="1200k"
-    elif [ $videoencode = "x264" ]; then
-        videorate="2200k"
+    if [ $vc = "x265" ]; then
+        vr="1400k"
+    elif [ $vc = "x264" ]; then
+        vr="2300k"
     fi
-    audiorate="128k"
+    ar="128k"
     speed="slow"
     profile="-x264-params 'profile=high:level=4.2'"
     out="720p"
@@ -56,7 +56,7 @@ update_lists() {
 #----------main func------------#
 main() {
   local thread="${SCRIPTS%/}/thread"
-  local THREAD_num=3                      #定义进程数量  3  !
+  local THREAD_num=4                      #定义进程数量  4
   [[ -a "$thread" ]] && \rm -f "$thread"  #若存在先删除
   mkfifo "$thread"                        #创建fifo型文件用于计数
   exec 9<> "$thread"
@@ -72,38 +72,40 @@ main() {
    (
     [[ -s "$queues" ]] || update_lists
     #----------st
-    one_file="$(tail -1 "$queues")"
+    f="$(tail -1 "$queues")"
+    [[ $f ]] || break
     sed -i '$d' "$queues"
-    [[ $one_file ]] && { name="${one_file%.*}";one_file="${VIDEOS%/}/$one_file"; }
-    [[ -f "$one_file" ]] && {
-      out_path="${OUTDIR%/}/${name}_${videoencode}_${out}.mp4"
+    [[ $f ]] && { name="${f%.*}";f="${VIDEOS%/}/$f"; }
+    [[ -f "$f" ]] && {
+      out_path="${OUTDIR%/}/${name}_${vc}_${out}.mp4"
       [[ -f "$out_path" ]] || {
       local _dir="${SCRIPTS%/}/${RANDOM}${RANDOM}"
       mkdir -p "$_dir"; cd "$_dir"
-      mv "$one_file" "${_dir%/}/${one_file##*/}"
-      one_file="${_dir%/}/${one_file##*/}"
-	  if [[ $videoencode == x265 ]]; then
-     (nice -19 ffmpeg -y -i "$one_file" -metadata title="$name" \
-     -metadata comment="$my_comment" -vf scale=$cut -c:v libx265 -x265-params \
-     pass=1 -r 24 -b:v $videorate -an -f mp4 /dev/null ) && ( nice -19 \
-     ffmpeg -y -i "$one_file" -metadata title="$name" -metadata \
-     comment="$my_comment" -vf scale=$cut -c:v libx265 -x265-params pass=2 -r 24 \
-     -b:v $videorate -c:a \
+      mv "$f" "${_dir%/}/${f##*/}"
+      f="${_dir%/}/${f##*/}"
+	  if [[ $vc = x265 ]]; then
+     (nice -19 ffmpeg -y -i "$f" -max_muxing_queue_size 9999 -metadata title="$name" \
+     -metadata comment="$mycc" -vf scale=$cut -c:v libx265 -x265-params pass=1 \
+     -x265-params no-info=1 -b:v $vr -an -f mp4 -hide_banner /dev/null) && (nice -19 \
+     ffmpeg -y -i "$f" -max_muxing_queue_size 9999 -metadata title="$name" -metadata \
+     comment="$mycc" -vf scale=$cut -c:v libx265 -x265-params pass=2 \
+     -x265-params no-info=1 -hide_banner -b:v $vr -c:a \
      `[[ $hasfdk = yes ]] && echo 'libfdk_aac -profile:a aac_he_v2' || echo aac` \
-     -b:a "$audiorate" -strict -2 "$out_path" )
+     -b:a "$ar" -strict -2 "$out_path")
 
-    elif [ "$videoencode" = "x264" ]; then
-     (nice -19 ffmpeg -y -i "$one_file" -metadata title="$name" -metadata \
-     comment="$my_comment" -vf scale=$cut -c:v libx264 -r 24 -b:v $videorate -pass 1 \
-     -an -f mp4 /dev/null ) && ( nice -19 ffmpeg -y -i "$one_file" -metadata \
-     title="$name" -metadata comment="$my_comment" -vf scale=$cut -c:v libx264 -r 24 \
-     -b:v $videorate -pass 2 -c:a \
+    elif [[ "$vc" = x264 ]]; then
+     (nice -19 ffmpeg -y -i "$f" -max_muxing_queue_size 9999 -metadata title="$name" \
+     -metadata comment="$mycc" -vf scale=$cut -c:v libx264 -b:v $vr -pass 1 -bsf:v \
+     'filter_units=remove_types=6' -an -f mp4 -hide_banner /dev/null ) && ( \
+     nice -19 ffmpeg -hide_banner -y -i "$f" -max_muxing_queue_size 9999 \
+     -metadata title="$name" -metadata comment="$mycc" -vf scale=$cut -c:v \
+     libx264 -b:v $vr -pass 2 -bsf:v 'filter_units=remove_types=6' -c:a \
      `[[ $hasfdk = yes ]] && echo 'libfdk_aac -profile:a aac_he_v2' || echo aac` \
-     -b:a "$audiorate" -strict -2 "$out_path" )
+     -b:a "$ar" -strict -2 "$out_path")
 
     fi; }
     }
-    \mv -f "$one_file" "${DONE%/}/"
+    \mv -f "$f" "${DONE%/}/"
     [[ -d "$_dir" ]] && \rm -rf "$_dir"
     unset _dir
     #----------ed
@@ -114,7 +116,8 @@ main() {
   \rm -f "$thread"
 }
 #------------------------#
-rm -f nohup.out
+echo "$$" > "${SCRIPTS%/}/pid"
+[[ -f "${SCRIPTS%/}/nohup.out" ]] && echo '' > "${SCRIPTS%/}/nohup.out"
 main
-[[ -s "$queues" ]] || \rm "$queues"
+[[ -s "$queues" ]] || \rm "$queues" "${SCRIPTS%/}/pid"
 
