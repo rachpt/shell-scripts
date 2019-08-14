@@ -3,15 +3,15 @@
 # version: 3.2
 #--------settings----------#
 ROOT='/home/workdir/'
-# use sd or ipad
+# use sd or hd
 compatibility="sd"
 # set x264 or x264
-vc="x265"
+vc="x264"
 # add comment for video
-mycc='made-by-rachpt'
+mycc='powered_by_rachpt'
 #--------------------------#
 VIDEOS="${ROOT%/}/encoding"
-OUTDIR="${ROOT%/}/x265"
+OUTDIR="${ROOT%/}/output"
 DONE="${ROOT%/}/done"
 SCRIPTS="${ROOT%/}/scripts"
 #--------------------------#
@@ -22,41 +22,54 @@ SCRIPTS="${ROOT%/}/scripts"
 queues="${SCRIPTS%/}/queues.txt"
 
 #--------pamaters---------#
-if [ $compatibility = "sd" ]; then
+if [[ $compatibility = sd ]]; then
     cut="-2:480"
     if [ $vc = "x265" ]; then
-        vr="300k"
+        vr="260k"  # 视频码率
     elif [ $vc = "x264" ]; then
-        vr="600k"
+        vr="500k"  # 视频码率
     fi
-    ar="48k"
+    ar="42k"  # 音频码率
     speed="fast"
-    profile="-x264-params 'profile=high:level=4.0'"
+    pl='4.0'
     out="480p"
 
-elif [ $compatibility = "ipad" ]; then
+elif [[ $compatibility = hd ]]; then
     cut="-2:720"
     if [ $vc = "x265" ]; then
-        vr="1400k"
+        vr="1200k"  # 视频码率
     elif [ $vc = "x264" ]; then
-        vr="2300k"
+        vr="2200k"  # 视频码率
     fi
-    ar="128k"
+    ar="128k"  # 音频码率
     speed="slow"
-    profile="-x264-params 'profile=high:level=4.2'"
+    pl='4.2'
     out="720p"
 fi
 #-------------------------------------#
-hasfdk="$([[ `ffmpeg -encoders|&grep -s libfdk_aac` ]] && echo yes|| echo no)"
+[[ `ffmpeg -hide_banner -encoders|&grep -s libfdk_aac` ]] && {
+  aac='libfdk_aac -profile:a aac_he_v2'
+} || {
+  aac='aac'
+}
 #-------------------------------------#
 update_lists() {
   ( \cd "$VIDEOS" && \ls -1 >> "$queues" )
 }
-
+#-------------------------------------#
+quality() {
+  local qt
+  scale="-vf scale=$cut"
+  qt="$(ffmpeg -hide_banner -i "$1" 2>&1|grep -Eio '[0-9]{3,4}x[0-9]{3,4}')"
+  [[ ${qt#*[xX]} -le ${cut#*:} ]] && {
+    out="${qt#*[xX]}p"
+    scale=''
+  }
+}
 #----------main func------------#
 main() {
   local thread="${SCRIPTS%/}/thread"
-  local THREAD_num=4                      #定义进程数量  4
+  local THREAD_num=2                      #定义进程数量  2
   [[ -a "$thread" ]] && \rm -f "$thread"  #若存在先删除
   mkfifo "$thread"                        #创建fifo型文件用于计数
   exec 9<> "$thread"
@@ -73,10 +86,11 @@ main() {
     [[ -s "$queues" ]] || update_lists
     #----------st
     f="$(tail -1 "$queues")"
-    [[ $f ]] || break
+    #[[ $f ]] || break
     sed -i '$d' "$queues"
     [[ $f ]] && { name="${f%.*}";f="${VIDEOS%/}/$f"; }
     [[ -f "$f" ]] && {
+      quality "$f"  # 判断是否需要缩小分辨率
       out_path="${OUTDIR%/}/${name}_${vc}_${out}.mp4"
       [[ -f "$out_path" ]] || {
       local _dir="${SCRIPTS%/}/${RANDOM}${RANDOM}"
@@ -85,27 +99,24 @@ main() {
       f="${_dir%/}/${f##*/}"
 	  if [[ $vc = x265 ]]; then
      (nice -19 ffmpeg -y -i "$f" -max_muxing_queue_size 9999 -metadata title="$name" \
-     -metadata comment="$mycc" -vf scale=$cut -c:v libx265 -x265-params pass=1 \
+     -metadata comment="${mycc:-Linux}" $scale -c:v libx265 -x265-params pass=1 \
      -x265-params no-info=1 -b:v $vr -an -f mp4 -hide_banner /dev/null) && (nice -19 \
      ffmpeg -y -i "$f" -max_muxing_queue_size 9999 -metadata title="$name" -metadata \
-     comment="$mycc" -vf scale=$cut -c:v libx265 -x265-params pass=2 \
-     -x265-params no-info=1 -hide_banner -b:v $vr -c:a \
-     `[[ $hasfdk = yes ]] && echo 'libfdk_aac -profile:a aac_he_v2' || echo aac` \
-     -b:a "$ar" -strict -2 "$out_path")
+     comment="${mycc:-Linux}" -hide_banner $scale -c:v libx265 -x265-params pass=2 \
+     -x265-params no-info=1 -b:v $vr -c:a $aac -b:a "$ar" -strict -2 "$out_path")
 
-    elif [[ "$vc" = x264 ]]; then
+    elif [[ $vc = x264 ]]; then
      (nice -19 ffmpeg -y -i "$f" -max_muxing_queue_size 9999 -metadata title="$name" \
-     -metadata comment="$mycc" -vf scale=$cut -c:v libx264 -b:v $vr -pass 1 -bsf:v \
-     'filter_units=remove_types=6' -an -f mp4 -hide_banner /dev/null ) && ( \
-     nice -19 ffmpeg -hide_banner -y -i "$f" -max_muxing_queue_size 9999 \
-     -metadata title="$name" -metadata comment="$mycc" -vf scale=$cut -c:v \
-     libx264 -b:v $vr -pass 2 -bsf:v 'filter_units=remove_types=6' -c:a \
-     `[[ $hasfdk = yes ]] && echo 'libfdk_aac -profile:a aac_he_v2' || echo aac` \
-     -b:a "$ar" -strict -2 "$out_path")
+     -metadata comment="${mycc:-Linux}" $scale -c:v libx264 -b:v $vr -profile:v high \
+     -level $pl -pass 1 -bsf:v 'filter_units=remove_types=6' -an -f mp4 -hide_banner \
+     /dev/null) && (nice -19 ffmpeg -hide_banner -y -i "$f" -metadata title="$name" \
+     -max_muxing_queue_size 9999 -metadata comment="${mycc:-Linux}" $scale -c:v \
+     libx264 -b:v $vr -profile:v high -level $pl -bsf:v 'filter_units=remove_types=6' \
+     -pass 2 -c:a $aac -b:a "$ar" -strict -2 "$out_path")
 
     fi; }
-    }
     \mv -f "$f" "${DONE%/}/"
+    }
     [[ -d "$_dir" ]] && \rm -rf "$_dir"
     unset _dir
     #----------ed
@@ -119,5 +130,5 @@ main() {
 echo "$$" > "${SCRIPTS%/}/pid"
 [[ -f "${SCRIPTS%/}/nohup.out" ]] && echo '' > "${SCRIPTS%/}/nohup.out"
 main
-[[ -s "$queues" ]] || \rm "$queues" "${SCRIPTS%/}/pid"
+[[ -f $queues && ! -s $queues ]] && \rm "$queues" "${SCRIPTS%/}/pid"
 
