@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Author: rachpt@126.com
-# Date: 2019-08-17
+# Date: 2019-11-11
 
 # 批量上传文件至蓝奏云
 
@@ -23,8 +23,13 @@ listurl='https://pc.woozooo.com/mydisk.php'
 
 user_agent='User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101 Firefox/68.0'
 #--------------------------------#
+get_formhash(){
+  formhash="$(http -Ib "${lgurl}?action=login" "$user_agent"|grep '"formhash"'|cut -d '"' -f6)"
+}
+#--------------------------------#
 login(){
-  cookie="$(http -Ihf POST "$lgurl" action=login task=login formhash=0af1aa15 \
+  get_formhash
+  cookie="$(http -Ihf POST "$lgurl" action=login task=login formhash=$formhash \
    username="$username" password="$password" "$user_agent"|grep 'Set-Cookie'| \
     awk -F'[:;]' 'BEGIN{ORS=";"}{print $2}')"
   [[ $cookie ]] && cookie="Cookie:$cookie"
